@@ -105,6 +105,16 @@
     </div>
   </dialog>
 
-  <script src="app.js"></script>
+  <script>
+  const pw = prompt("Passwort eingeben:");
+  if (pw !== "Danielderkek") {
+    document.body.innerHTML = "<h1 style='color:red;text-align:center;margin-top:20%'>❌ Zugriff verweigert ❌</h1>";
+    throw new Error("Falsches Passwort");
+  }
+</script>
+
+ <script src="app.js"></script>
+
 </body>
 </html>
+
