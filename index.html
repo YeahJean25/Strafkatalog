@@ -56,6 +56,19 @@
       z-index: 3;
   }
 
+    /* Sticky Header + erste Spalten */
+thead th{ position:sticky; top:0; background:#0d1628; color:#e5e7eb; z-index:5; }
+.sticky-left{ position:sticky; left:0; background:#0d1628; color:#e5e7eb; z-index:6; }
+/* Ecke oben links (Header + linke Spalte überlappt sauber) */
+thead th.sticky-left{ z-index:7; }
+
+/* Dezente Trennlinien bei Sticky-Elementen (optional, sieht sauber aus) */
+thead th{ box-shadow: inset 0 -1px 0 #1f2937; }
+.sticky-left{ box-shadow: 1px 0 0 #1f2937; }
+
+/* Mobile smooth scrolling im Tabellen-Container */
+#tableWrap > div{ overflow:auto; -webkit-overflow-scrolling:touch; }
+
     
   </style>
 </head>
@@ -135,5 +148,6 @@
 
 </body>
 </html>
+
 
 
