@@ -1,10 +1,10 @@
-/* Strafkatalog – kompakte Mehrfach-Strafen, Kommentare, Summen & Nicht-€-Hinweise */
+/* Strafkatalog – globale Strafen 1–5, spieltagbezogene ab 6., Kommentare, Summen & Nicht-€ */
 (() => {
   'use strict';
 
   // ---------- Helpers ----------
   const $  = (s, root = document) => root.querySelector(s);
-  const KEY = 'strafkatalog_state_v1';
+  const KEY = 'strafkatalog_state_v2'; // neue Version wegen globalem Bereich
 
   const escapeHtml = (s) => String(s).replace(/[&<>\"']/g, c =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] || c));
@@ -12,9 +12,10 @@
 
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } };
   const save = (state) => localStorage.setItem(KEY, JSON.stringify(state));
-  const valid = (s) => s && Array.isArray(s.players) && Array.isArray(s.penalties) && Array.isArray(s.matchdays);
+  const valid = (s) =>
+    s && Array.isArray(s.players) && Array.isArray(s.penalties) && Array.isArray(s.matchdays);
 
-  // --- robustes €-Parsing / Formatierung
+  // € Parsing/Formatierung
   const parseEuro = (price) => {
     if (!price || typeof price !== 'string') return 0;
     const cleaned = price.replace(/\u00A0/g, ' ').replace(/,/g, '.').trim();
@@ -23,76 +24,14 @@
     const v = parseFloat(m[1]);
     return Number.isFinite(v) ? v : 0;
   };
-  const formatEuro = (n) => (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2).replace('.', ',') + '€';
+  const formatEuro = (n) =>
+    (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2).replace('.', ',') + '€';
 
-  // --- Nicht-€-Erkennung & Normalisierung
   const isMonetary = (price) =>
     typeof price === 'string' && /€/i.test(price) && /[0-9]/.test(price);
 
-  // "1 Kasten Bier" -> "Kasten Bier"
   const normalizeNonEuroLabel = (price) =>
     String(price || '').replace(/^\s*\d+\s+/, '').trim();
-
-  // --- Nicht-monetäre Posten für EINEN Spieltag, mit Spielernamen
-  function collectNonMonetaryForMatchdayDetailed(md){
-    const bag = {}; // { 'Kasten Bier': {Steffen:1, Robert:2}, 'Runde': {Tim:1}, ... }
-    for (const row of state.penalties){
-      if (row.isSeparator) continue;
-      if (!row.price || isMonetary(row.price)) continue;
-      const item = normalizeNonEuroLabel(row.price);
-      if (!item) continue;
-
-      for (const p of state.players){
-        const e = getEntry(md, p, row.num) || {};
-        const qty = row.allowMulti ? (e.count || 0) : (e.checked ? 1 : 0);
-        if (qty > 0){
-          bag[item] ||= {};
-          bag[item][p] = (bag[item][p] || 0) + qty;
-        }
-      }
-    }
-    const lines = [];
-    for (const [item, playersMap] of Object.entries(bag)){
-      const total = Object.values(playersMap).reduce((a,b)=>a+b,0);
-      const who = Object.entries(playersMap)
-        .map(([pl,c]) => c === 1 ? pl : `${pl} (${c})`)
-        .join(', ');
-      lines.push(`${total}× ${item} — ${who}`);
-    }
-    return lines;
-  }
-
-  // --- Nicht-monetäre Posten über ALLE Spieltage, mit Spielernamen
-  function collectNonMonetaryAllDetailed(){
-    const bag = {};
-    for (const md of state.matchdays){
-      ensureMD(md);
-      for (const row of state.penalties){
-        if (row.isSeparator) continue;
-        if (!row.price || isMonetary(row.price)) continue;
-        const item = normalizeNonEuroLabel(row.price);
-        if (!item) continue;
-
-        for (const p of state.players){
-          const e = getEntry(md, p, row.num) || {};
-          const qty = row.allowMulti ? (e.count || 0) : (e.checked ? 1 : 0);
-          if (qty > 0){
-            bag[item] ||= {};
-            bag[item][p] = (bag[item][p] || 0) + qty;
-          }
-        }
-      }
-    }
-    const lines = [];
-    for (const [item, playersMap] of Object.entries(bag)){
-      const total = Object.values(playersMap).reduce((a,b)=>a+b,0);
-      const who = Object.entries(playersMap)
-        .map(([pl,c]) => c === 1 ? pl : `${pl} (${c})`)
-        .join(', ');
-      lines.push(`${total}× ${item} — ${who}`);
-    }
-    return lines;
-  }
 
   // ---------- Defaults ----------
   const defaults = {
@@ -111,7 +50,6 @@
       { num:'6.3', label:'Weniger als 10 min', price:'3€', isSub:true },
       { num:'6.4', label:'Mehr als 10 min',    price:'5€', isSub:true },
 
-      // Mehrfach-Strafen
       { num:'7.',  label:'Spiel vorziehen / früher gehen', price:'5€ pro Spiel', allowMulti:true },
       { num:'8.',  label:'Aufschlagfehler Satzball',       price:'2€',          allowMulti:true },
       { num:'9.',  label:'Aufschlagfehler Matchball',      price:'5€',          allowMulti:true },
@@ -157,7 +95,8 @@
       '21.03.2026 · 18:30 · TTC Berghaupten II – TTC Langhurst',
       '18.04.2026 · 17:30 · TTC Langhurst – TUS Rammersweier II'
     ],
-    data: {},
+    data: {},     // pro Spieltag (ab 6.)
+    global: {},   // NEU: für 1–5, spieltagunabhängig
     log: []
   };
 
@@ -170,23 +109,28 @@
     projectName:   $('#projectName'),
     matchdaySelect:$('#matchdaySelect'),
     tableWrap:     $('#tableWrap'),
+    globalWrap:    $('#globalWrap'),
     log:           $('#log'),
     dlg:           $('#commentModal'),
   };
 
   // ---------- Init (Header) ----------
-  els.projectName.value = state.projectName || '';
-  els.projectName.addEventListener('input', () => { state.projectName = els.projectName.value; save(state); });
+  if (els.projectName){
+    els.projectName.value = state.projectName || '';
+    els.projectName.addEventListener('input', () => {
+      state.projectName = els.projectName.value; save(state);
+    });
+  }
 
-  $('#btnPrint').addEventListener('click', () => window.print());
-  $('#btnExportJSON').addEventListener('click', () => {
+  $('#btnPrint')?.addEventListener('click', () => window.print());
+  $('#btnExportJSON')?.addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `strafkatalog_${(state.projectName||'projekt').replace(/\s+/g,'_')}.json`;
     a.click(); URL.revokeObjectURL(a.href);
   });
-  $('#btnImportJSON').addEventListener('click', () => {
+  $('#btnImportJSON')?.addEventListener('click', () => {
     const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json';
     inp.onchange = (ev) => {
       const f = ev.target.files?.[0]; if (!f) return;
@@ -202,12 +146,30 @@
     };
     inp.click();
   });
-  $('#btnReset').addEventListener('click', () => {
+  $('#btnReset')?.addEventListener('click', () => {
     if (confirm('Alles zurücksetzen?')) { state = JSON.parse(JSON.stringify(defaults)); save(state); location.reload(); }
   });
-  $('#clearLog').addEventListener('click', () => { state.log = []; save(state); renderLog(); });
+  $('#clearLog')?.addEventListener('click', () => { state.log = []; save(state); renderLog(); });
 
   // ---------- Data helpers ----------
+  const firstToFifth = new Set(['1.','2.','3.','4.','5.']);
+
+  function ensureGlobal(){
+    state.global ||= {};
+    for (const p of state.players){
+      state.global[p] ||= {};
+      for (const row of state.penalties){
+        if (!firstToFifth.has(row.num)) continue;
+        const prev = state.global[p][row.num];
+        if (!prev){
+          const base = row.allowMulti ? { count:0, comment:'', ts:null } : { checked:false, comment:'', ts:null };
+          state.global[p][row.num] = base;
+        }
+      }
+    }
+    save(state);
+  }
+
   function ensureMD(md){
     state.data ||= {};
     if (!state.data[md]) state.data[md] = {};
@@ -215,9 +177,9 @@
       state.data[md][p] ||= {};
       for (const row of state.penalties){
         if (row.isSeparator) continue;
+        if (firstToFifth.has(row.num)) continue; // nur ab 6. in matchday-Daten
         const prev = state.data[md][p][row.num];
         const base = row.allowMulti ? { count:0, comment:'', ts:null } : { checked:false, comment:'', ts:null };
-        // Migration: alte Checkbox bei Multi -> count
         if (prev && row.allowMulti){
           state.data[md][p][row.num] = {
             count: prev.count ?? (prev.checked ? 1 : 0),
@@ -231,6 +193,15 @@
     }
     save(state);
   }
+
+  const getEntryGlobal = (p,num) => ((state.global||{})[p]||{})[num] || null;
+  function setEntryGlobal(p,num,partial){
+    ensureGlobal();
+    const prev = getEntryGlobal(p,num) || {};
+    state.global[p][num] = { ...prev, ...partial, ts: Date.now() };
+    save(state);
+  }
+
   const getEntry = (md,p,num) => (((state.data||{})[md]||{})[p]||{})[num] || null;
   function setEntry(md,p,num,partial){
     ensureMD(md);
@@ -240,10 +211,26 @@
   }
 
   // ---------- Summen ----------
+  function sumGlobalFirstToFifth(){
+    const sums = Object.fromEntries(state.players.map(p=>[p,0]));
+    for (const row of state.penalties){
+      if (!firstToFifth.has(row.num)) continue;
+      const price = parseEuro(row.price);
+      if (!price) continue;
+      for (const p of state.players){
+        const e = getEntryGlobal(p,row.num) || {};
+        const qty = row.allowMulti ? (e.count||0) : (e.checked ? 1 : 0);
+        if (qty) sums[p] += price * qty;
+      }
+    }
+    return sums;
+  }
+
   function sumForMatchday(md){
     const sums = Object.fromEntries(state.players.map(p=>[p,0]));
     for (const row of state.penalties){
       if (row.isSeparator) continue;
+      if (firstToFifth.has(row.num)) continue; // nur 6.–Ende
       const price = parseEuro(row.price);
       if (!price) continue;
       for (const p of state.players){
@@ -254,6 +241,7 @@
     }
     return sums;
   }
+
   function sumForAllMatchdays(){
     const sums = Object.fromEntries(state.players.map(p=>[p,0]));
     for (const md of state.matchdays){
@@ -264,14 +252,117 @@
     return sums;
   }
 
+  // ---------- Nicht-€ ----------
+  function collectNonMonetaryForMatchdayDetailed(md){
+    const bag = {};
+    for (const row of state.penalties){
+      if (row.isSeparator) continue;
+      if (firstToFifth.has(row.num)) continue; // global nicht hier
+      if (!row.price || isMonetary(row.price)) continue;
+      const item = normalizeNonEuroLabel(row.price);
+      if (!item) continue;
+
+      for (const p of state.players){
+        const e = getEntry(md, p, row.num) || {};
+        const qty = row.allowMulti ? (e.count || 0) : (e.checked ? 1 : 0);
+        if (qty > 0){
+          bag[item] ||= {};
+          bag[item][p] = (bag[item][p] || 0) + qty;
+        }
+      }
+    }
+    const lines = [];
+    for (const [item, playersMap] of Object.entries(bag)){
+      const total = Object.values(playersMap).reduce((a,b)=>a+b,0);
+      const who = Object.entries(playersMap).map(([pl,c]) => c === 1 ? pl : `${pl} (${c})`).join(', ');
+      lines.push(`${total}× ${item} — ${who}`);
+    }
+    return lines;
+  }
+
+  function collectNonMonetaryAllDetailed(){
+    const bag = {};
+    // global 1–5
+    for (const row of state.penalties){
+      if (!firstToFifth.has(row.num)) continue;
+      if (!row.price || isMonetary(row.price)) continue;
+      const item = normalizeNonEuroLabel(row.price);
+      if (!item) continue;
+      for (const p of state.players){
+        const e = getEntryGlobal(p, row.num) || {};
+        const qty = row.allowMulti ? (e.count||0) : (e.checked ? 1 : 0);
+        if (qty > 0){
+          bag[item] ||= {};
+          bag[item][p] = (bag[item][p] || 0) + qty;
+        }
+      }
+    }
+    // alle Spieltage 6–Ende
+    for (const md of state.matchdays){
+      ensureMD(md);
+      for (const row of state.penalties){
+        if (row.isSeparator) continue;
+        if (firstToFifth.has(row.num)) continue;
+        if (!row.price || isMonetary(row.price)) continue;
+        const item = normalizeNonEuroLabel(row.price);
+        if (!item) continue;
+
+        for (const p of state.players){
+          const e = getEntry(md, p, row.num) || {};
+          const qty = row.allowMulti ? (e.count || 0) : (e.checked ? 1 : 0);
+          if (qty > 0){
+            bag[item] ||= {};
+            bag[item][p] = (bag[item][p] || 0) + qty;
+          }
+        }
+      }
+    }
+    const lines = [];
+    for (const [item, playersMap] of Object.entries(bag)){
+      const total = Object.values(playersMap).reduce((a,b)=>a+b,0);
+      const who = Object.entries(playersMap).map(([pl,c]) => c === 1 ? pl : `${pl} (${c})`).join(', ');
+      lines.push(`${total}× ${item} — ${who}`);
+    }
+    return lines;
+  }
+
   // ---------- Render ----------
   function renderMatchdayOptions(){
+    if (!els.matchdaySelect) return;
     els.matchdaySelect.innerHTML = state.matchdays.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
     if (!els.matchdaySelect.value && state.matchdays.length) els.matchdaySelect.value = state.matchdays[0];
   }
 
+  function renderGlobal(){
+    ensureGlobal();
+    const rows = state.penalties.filter(r => firstToFifth.has(r.num));
+    let html = `<div style="overflow:auto"><table><thead><tr>
+      <th class="sticky-left">#</th>
+      <th class="sticky-left">Strafe</th>
+      <th>Preis</th>
+      ${state.players.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}
+    </tr></thead><tbody>`;
+
+    for (const row of rows){
+      html += `<tr>
+        <th class="sticky-left">${escapeHtml(row.num)}</th>
+        <th class="sticky-left">${escapeHtml(row.label)}</th>
+        <td>${escapeHtml(row.price||'')}</td>`;
+      for (const pl of state.players){
+        const e = getEntryGlobal(pl,row.num) || {};
+        const checked = e.checked ? 'checked' : '';
+        html += `<td><input type="checkbox" data-global="1" data-player="${attr(pl)}" data-pen="${attr(row.num)}" ${checked}></td>`;
+      }
+      html += `</tr>`;
+    }
+    html += `</tbody></table></div>`;
+    els.globalWrap.innerHTML = html;
+
+    els.globalWrap.addEventListener('change', onGlobalChange);
+  }
+
   function renderTable(){
-    const md = els.matchdaySelect.value || state.matchdays[0];
+    const md = els.matchdaySelect?.value || state.matchdays[0];
     ensureMD(md);
 
     let html = `<div style="overflow:auto"><table><thead><tr>
@@ -283,9 +374,12 @@
 
     for (const row of state.penalties){
       if (row.isSeparator){
+        // Separator nur zeigen, wenn er nach 17. kommt (bleibt bestehen)
         html += `<tr class="separator-row"><td colspan="${3 + state.players.length}"></td></tr>`;
         continue;
       }
+      if (firstToFifth.has(row.num)) continue; // 1–5 stehen oben
+
       const isCommentRow = (row.num === '6.' || row.num === '10.');
       const rowClass = row.isSub ? 'sub-row' : '';
       html += `<tr class="${rowClass}">
@@ -315,25 +409,28 @@
     }
 
     // Summen
-    const mdSum  = sumForMatchday(md);
-    const allSum = sumForAllMatchdays();
+    const mdSum   = sumForMatchday(md);           // nur 6.–Ende für diesen Spieltag
+    const allSum  = sumForAllMatchdays();         // alle Spieltage, 6.–Ende
+    const gSum    = sumGlobalFirstToFifth();      // global 1.–5
+    const colspan = 3 + state.players.length;
+
     html += `<tr class="summary-row">
       <th class="sticky-left">Σ</th>
       <th class="sticky-left">Gesamt (dieser Spieltag)</th>
       <td></td>
       ${state.players.map(p => `<td>${formatEuro(mdSum[p])}</td>`).join('')}
     </tr>`;
+
     html += `<tr class="summary-row">
       <th class="sticky-left">Σ</th>
-      <th class="sticky-left">Gesamt (alle Spieltage)</th>
+      <th class="sticky-left">Gesamt (alle Spieltage inkl. 1–5)</th>
       <td></td>
-      ${state.players.map(p => `<td>${formatEuro(allSum[p])}</td>`).join('')}
+      ${state.players.map(p => `<td>${formatEuro(allSum[p] + gSum[p])}</td>`).join('')}
     </tr>`;
 
-    // Nicht-€-Hinweise (mit Namen) unter den Summen
+    // Nicht-€ Hinweise
     const nonMonThis = collectNonMonetaryForMatchdayDetailed(md);
     const nonMonAll  = collectNonMonetaryAllDetailed();
-    const colspan    = 3 + state.players.length;
 
     if (nonMonThis.length){
       html += `<tr class="note-row"><td colspan="${colspan}">
@@ -344,7 +441,7 @@
     }
     if (nonMonAll.length){
       html += `<tr class="note-row"><td colspan="${colspan}">
-        <div class="note"><strong>Nicht-monetäre Strafen (alle Spieltage):</strong><br>
+        <div class="note"><strong>Nicht-monetäre Strafen (gesamt inkl. 1–5):</strong><br>
           ${nonMonAll.map(s => escapeHtml(s)).join('<br>')}
         </div>
       </td></tr>`;
@@ -353,21 +450,28 @@
     html += `</tbody></table></div>`;
     els.tableWrap.innerHTML = html;
 
-    // Event Delegation
+    // Events
     els.tableWrap.addEventListener('change', onTableChange);
     els.tableWrap.addEventListener('click', onTableClick);
   }
 
   // ---------- Events ----------
+  function onGlobalChange(ev){
+    const t = ev.target;
+    if (t.matches('input[type="checkbox"][data-global]')){
+      setEntryGlobal(t.dataset.player, t.dataset.pen, {checked: t.checked});
+      renderTable(); // Summen aktualisieren
+      return;
+    }
+  }
+
   function onTableChange(ev){
     const t = ev.target;
-    // checkbox (single)
     if (t.matches('input[type="checkbox"][data-md]')){
       setEntry(t.dataset.md, t.dataset.player, t.dataset.pen, {checked: t.checked});
       renderTable();
       return;
     }
-    // number input (multi)
     if (t.matches('.qty-input')){
       const n = Math.max(0, Math.floor(Number(t.value) || 0));
       setEntry(t.dataset.md, t.dataset.player, t.dataset.pen, {count:n});
@@ -375,6 +479,7 @@
       return;
     }
   }
+
   function onTableClick(ev){
     const btn = ev.target.closest('.comment-btn');
     if (!btn) return;
@@ -393,7 +498,7 @@
     $('#commentText').value = e.comment || '';
     dlg.showModal();
   }
-  $('#saveComment').addEventListener('click', () => {
+  $('#saveComment')?.addEventListener('click', () => {
     if (!ctx) return $('#commentModal').close();
     setEntry(ctx.md, ctx.pl, ctx.pen, {
       comment: $('#commentText').value,
@@ -403,23 +508,14 @@
     $('#commentModal').close();
   });
 
-  // ---------- Log (optional) ----------
+  // ---------- Log ----------
   function renderLog(){
+    if (!els.log) return;
     els.log.textContent = (state.log||[]).map(l => `[${new Date(l.ts).toLocaleString()}] ${l.msg}`).join('\n');
     els.log.scrollTop = els.log.scrollHeight;
   }
 
-  // ---------- Boot ----------
-  function boot(){
-    for (const md of state.matchdays) ensureMD(md);
-    migrateExtras();                 // Separator + 18–21 sicherstellen
-    renderMatchdayOptions();
-    els.matchdaySelect.addEventListener('change', renderTable);
-    renderTable();
-    renderLog();
-  }
-
-  // Separator + 18–21 ergänzen, falls in bestehendem State fehlen
+  // ---------- Migration Extras ----------
   function migrateExtras(){
     const byNum = Object.fromEntries(defaults.penalties.map(r => [r.num, r]));
     if (!state.penalties.some(r => r.isSeparator)){
@@ -430,6 +526,18 @@
       if (!state.penalties.find(r => r.num === n)) state.penalties.push(byNum[n]);
     });
     save(state);
+  }
+
+  // ---------- Boot ----------
+  function boot(){
+    ensureGlobal();
+    for (const md of state.matchdays) ensureMD(md);
+    migrateExtras();
+    renderMatchdayOptions();
+    els.matchdaySelect?.addEventListener('change', renderTable);
+    renderGlobal();
+    renderTable();
+    renderLog();
   }
 
   boot();
