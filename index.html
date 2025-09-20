@@ -77,12 +77,11 @@ body {
   font: 13px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;
 
   /* Logo groß als Hintergrund */
-  background-image: url("./TTC_Logo_BW.png");
+  background-image: url("./TTC_Logo_BW.png?v=2025-09-19-1");  /* <- Cache-Buster anhängen */
   background-repeat: no-repeat;
   background-position: center center;
-  background-attachment: fixed;   /* bleibt beim Scrollen fixiert */
-  background-size: 25%;           /* Logo-Größe → anpassen (z.B. 50%, 70%) */
-  opacity: 0.95;                  /* ganze Seite sichtbar, Logo leicht durchscheinend */
+  background-attachment: fixed;
+  background-size: 60%;  /* Größe nach Wunsch */               /* ganze Seite sichtbar, Logo leicht durchscheinend */
 }
 
 
@@ -165,6 +164,7 @@ body {
 
 </body>
 </html>
+
 
 
 
