@@ -69,6 +69,22 @@ thead th{ box-shadow: inset 0 -1px 0 #1f2937; }
 /* Mobile smooth scrolling im Tabellen-Container */
 #tableWrap > div{ overflow:auto; -webkit-overflow-scrolling:touch; }
 
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;
+  
+  /* Logo als Wasserzeichen */
+  background-image: url("TTC_Logo_BW.png");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-attachment: fixed;
+  background-size: 40%; /* Größe des Logos (kann angepasst werden) */
+  opacity: 0.95; /* Gesamtseite bleibt sichtbar */
+}
+
+
     
   </style>
 </head>
@@ -148,6 +164,7 @@ thead th{ box-shadow: inset 0 -1px 0 #1f2937; }
 
 </body>
 </html>
+
 
 
 
