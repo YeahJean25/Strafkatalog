@@ -90,6 +90,59 @@ body::before {
 }
 
 
+/* ===== Watermark-Layer (Logo hinter allem) ===== */
+body{
+  position: relative;              /* eigener Stacking-Context */
+}
+body::before{
+  content: "";
+  position: fixed;
+  inset: 0;                        /* top:0; right:0; bottom:0; left:0 */
+  background: url("./TTC_Logo_BW.png?v=2025-09-19-1") no-repeat center center;
+  background-size: 75%;
+  opacity: 0.15;                   /* <- Transparenz des Logos hier steuern */
+  pointer-events: none;            /* blockiert keine Klicks */
+  z-index: 0;                      /* Layer-Hintergrund */
+}
+/* App-Inhalt bewusst über das Watermark heben */
+header, main, dialog, #tableWrap{
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== Glas-Effekt für die Tabellen-Karte ===== */
+.card.table-glass{
+  background: rgba(11,18,32,0.45) !important;     /* halbtransparent */
+  border: 1px solid var(--border) !important;
+}
+.card.table-glass h2{
+  background: rgba(13,22,40,0.65) !important;
+}
+.card.table-glass .body{
+  background: transparent !important;
+}
+
+/* Tabelle selbst durchsichtig halten */
+#tableWrap table{ background: transparent !important; }
+
+/* Sticky-Header & linke Spalte leicht transparent, damit Logo durchscheint */
+#tableWrap thead th,
+#tableWrap .sticky-left,
+#tableWrap tbody th{
+  background: rgba(13,22,40,0.70) !important;
+  backdrop-filter: saturate(1) blur(1.2px);        /* dezenter Glaslook (optional) */
+}
+
+/* Summenzeilen dezent */
+#tableWrap .summary-row th,
+#tableWrap .summary-row td{
+  background: rgba(13,22,40,0.70) !important;
+}
+
+/* Trennzeile bleibt durchsichtig */
+.separator-row td{ background: transparent !important; }
+
+
     
   </style>
 </head>
@@ -169,6 +222,7 @@ body::before {
 
 </body>
 </html>
+
 
 
 
