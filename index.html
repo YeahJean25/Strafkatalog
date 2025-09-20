@@ -70,23 +70,23 @@ thead th{ box-shadow: inset 0 -1px 0 #1f2937; }
 #tableWrap > div{ overflow:auto; -webkit-overflow-scrolling:touch; }
 
 
-body {
+body{
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--text);
   font: 13px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;
 
   /* Logo-Muster */
-  background-image: url("TTC_Logo_BW.png");
-  background-repeat: repeat;      
-  background-position: center;    
+  background-image: url("./TTC_Logo_BW.png");
+  background-repeat: repeat;
+  background-position: center;
 
-  /* Abstand einstellen */
-  background-size: 120px 120px;     /* 80px Logo + 40px Leerraum */
-  background-origin: content-box;   /* sorgt dafür, dass es "innerhalb" der Box gerendert wird */
+  /* Bild kleiner als die Kachel → Abstand entsteht automatisch */
+  background-size: 120px 120px;   /* Bildgröße */
+  background-origin: content-box;
   background-clip: content-box;
-  padding: 10px;                  /* Platz = Abstand zwischen den Logos */
 }
+
 
 
 
@@ -170,6 +170,7 @@ body {
 
 </body>
 </html>
+
 
 
 
