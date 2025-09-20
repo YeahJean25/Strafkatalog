@@ -76,23 +76,20 @@ body {
   position: relative;
 }
 
-/* Logo als Wasserzeichen */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: url("TTC_Logo_BW.png") no-repeat center center;
-  background-size: 40%;      /* Größe des Logos */
-  opacity: 0.08;             /* nur das Logo wird transparent */
-  z-index: 0;
-  pointer-events: none;      /* Logo blockiert keine Klicks */
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;
+
+  /* Logo-Muster */
+  background-image: url("TTC_Logo_BW.png"); /* dein gerendertes Logo */
+  background-repeat: repeat;                /* als Muster wiederholen */
+  background-size: 120px;                   /* Logo-Größe anpassen */
+  background-position: center;              /* Startposition */
+  opacity: 0.95;                            /* GANZE Seite bleibt sichtbar */
 }
 
-/* Inhalt bleibt sichtbar über dem Logo */
-header, main, dialog {
-  position: relative;
-  z-index: 1;
-}
 
 
 
@@ -175,6 +172,7 @@ header, main, dialog {
 
 </body>
 </html>
+
 
 
 
