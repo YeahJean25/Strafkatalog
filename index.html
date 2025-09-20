@@ -72,18 +72,23 @@ thead th{ box-shadow: inset 0 -1px 0 #1f2937; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--bg); /* normale Hintergrundfarbe */
   color: var(--text);
   font: 13px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;
-
-  /* Logo groß als Hintergrund */
-  background-image: url("./TTC_Logo_BW.png?v=2025-09-19-1");  /* <- Cache-Buster anhängen */
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-attachment: fixed;
-  background-size: 75%;  /* Größe nach Wunsch */               /* ganze Seite sichtbar, Logo leicht durchscheinend */
-  opacity: 0.95;    
+  position: relative;
+  z-index: 0;
 }
+
+body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: url("./TTC_Logo_BW.png?v=2025-09-19-1") no-repeat center center;
+  background-size: 75%;
+  opacity: 0.15;        /* hier steuerst du die Transparenz des Logos */
+  z-index: -1;          /* bleibt im Hintergrund */
+}
+
 
     
   </style>
@@ -164,6 +169,7 @@ body {
 
 </body>
 </html>
+
 
 
 
