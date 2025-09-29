@@ -1,21 +1,33 @@
-/* Strafkatalog – globale Strafen 1–5, spieltagbezogene ab 6., Kommentare, Summen & Nicht-€ */
+/* Strafkatalog – 1–5 global, ab 6. pro Spieltag, Summen, Kommentare, Sticky-Header, Persistenz */
 (() => {
   'use strict';
 
-  // ---------- Helpers ----------
+  // ---------- DOM Helpers ----------
   const $  = (s, root = document) => root.querySelector(s);
-  const KEY = 'strafkatalog_state_v2'; // neue Version wegen globalem Bereich
+  const KEY = 'strafkatalog_state_v2'; // neue, stabile Version
 
+  // Sticky-Header an Seiten-Header-Höhe anpassen
+  function updateStickyTop(){
+    const hdr = document.querySelector('header');
+    const h = hdr ? hdr.offsetHeight : 0;
+    document.documentElement.style.setProperty('--headerH', (h || 0) + 'px');
+  }
+  updateStickyTop();
+  window.addEventListener('resize', updateStickyTop);
+  if (window.ResizeObserver){
+    const el = document.querySelector('header');
+    if (el){ new ResizeObserver(updateStickyTop).observe(el); }
+  }
+
+  // ---------- Utils ----------
   const escapeHtml = (s) => String(s).replace(/[&<>\"']/g, c =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] || c));
   const attr = (s) => String(s).split('"').join('&quot;');
 
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } };
   const save = (state) => localStorage.setItem(KEY, JSON.stringify(state));
-  const valid = (s) =>
-    s && Array.isArray(s.players) && Array.isArray(s.penalties) && Array.isArray(s.matchdays);
+  const valid = (s) => s && Array.isArray(s.players) && Array.isArray(s.penalties) && Array.isArray(s.matchdays);
 
-  // € Parsing/Formatierung
   const parseEuro = (price) => {
     if (!price || typeof price !== 'string') return 0;
     const cleaned = price.replace(/\u00A0/g, ' ').replace(/,/g, '.').trim();
@@ -24,14 +36,9 @@
     const v = parseFloat(m[1]);
     return Number.isFinite(v) ? v : 0;
   };
-  const formatEuro = (n) =>
-    (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2).replace('.', ',') + '€';
-
-  const isMonetary = (price) =>
-    typeof price === 'string' && /€/i.test(price) && /[0-9]/.test(price);
-
-  const normalizeNonEuroLabel = (price) =>
-    String(price || '').replace(/^\s*\d+\s+/, '').trim();
+  const formatEuro = (n) => (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2).replace('.', ',') + '€';
+  const isMonetary = (price) => typeof price === 'string' && /€/i.test(price) && /[0-9]/.test(price);
+  const normalizeNonEuroLabel = (price) => String(price || '').replace(/^\s*\d+\s+/, '').trim();
 
   // ---------- Defaults ----------
   const defaults = {
@@ -95,8 +102,8 @@
       '21.03.2026 · 18:30 · TTC Berghaupten II – TTC Langhurst',
       '18.04.2026 · 17:30 · TTC Langhurst – TUS Rammersweier II'
     ],
-    data: {},     // pro Spieltag (ab 6.)
-    global: {},   // NEU: für 1–5, spieltagunabhängig
+    data: {},     // ab 6. pro Spieltag
+    global: {},   // 1–5 global
     log: []
   };
 
@@ -114,12 +121,10 @@
     dlg:           $('#commentModal'),
   };
 
-  // ---------- Init (Header) ----------
+  // ---------- Header-Init ----------
   if (els.projectName){
     els.projectName.value = state.projectName || '';
-    els.projectName.addEventListener('input', () => {
-      state.projectName = els.projectName.value; save(state);
-    });
+    els.projectName.addEventListener('input', () => { state.projectName = els.projectName.value; save(state); });
   }
 
   $('#btnPrint')?.addEventListener('click', () => window.print());
@@ -177,7 +182,7 @@
       state.data[md][p] ||= {};
       for (const row of state.penalties){
         if (row.isSeparator) continue;
-        if (firstToFifth.has(row.num)) continue; // nur ab 6. in matchday-Daten
+        if (firstToFifth.has(row.num)) continue; // 1–5 sind global
         const prev = state.data[md][p][row.num];
         const base = row.allowMulti ? { count:0, comment:'', ts:null } : { checked:false, comment:'', ts:null };
         if (prev && row.allowMulti){
@@ -257,7 +262,7 @@
     const bag = {};
     for (const row of state.penalties){
       if (row.isSeparator) continue;
-      if (firstToFifth.has(row.num)) continue; // global nicht hier
+      if (firstToFifth.has(row.num)) continue;
       if (!row.price || isMonetary(row.price)) continue;
       const item = normalizeNonEuroLabel(row.price);
       if (!item) continue;
@@ -297,7 +302,7 @@
         }
       }
     }
-    // alle Spieltage 6–Ende
+    // 6–Ende über alle Spieltage
     for (const md of state.matchdays){
       ensureMD(md);
       for (const row of state.penalties){
@@ -336,7 +341,7 @@
   function renderGlobal(){
     ensureGlobal();
     const rows = state.penalties.filter(r => firstToFifth.has(r.num));
-    let html = `<div style="overflow:auto"><table><thead><tr>
+    let html = `<div><table><thead><tr>
       <th class="sticky-left">#</th>
       <th class="sticky-left">Strafe</th>
       <th>Preis</th>
@@ -357,15 +362,13 @@
     }
     html += `</tbody></table></div>`;
     els.globalWrap.innerHTML = html;
-
-    els.globalWrap.addEventListener('change', onGlobalChange);
   }
 
   function renderTable(){
     const md = els.matchdaySelect?.value || state.matchdays[0];
     ensureMD(md);
 
-    let html = `<div style="overflow:auto"><table><thead><tr>
+    let html = `<div><table><thead><tr>
       <th class="sticky-left">#</th>
       <th class="sticky-left">Strafe</th>
       <th>Preis</th>
@@ -374,11 +377,10 @@
 
     for (const row of state.penalties){
       if (row.isSeparator){
-        // Separator nur zeigen, wenn er nach 17. kommt (bleibt bestehen)
         html += `<tr class="separator-row"><td colspan="${3 + state.players.length}"></td></tr>`;
         continue;
       }
-      if (firstToFifth.has(row.num)) continue; // 1–5 stehen oben
+      if (firstToFifth.has(row.num)) continue; // 1–5 sind oben
 
       const isCommentRow = (row.num === '6.' || row.num === '10.');
       const rowClass = row.isSub ? 'sub-row' : '';
@@ -409,9 +411,9 @@
     }
 
     // Summen
-    const mdSum   = sumForMatchday(md);           // nur 6.–Ende für diesen Spieltag
-    const allSum  = sumForAllMatchdays();         // alle Spieltage, 6.–Ende
-    const gSum    = sumGlobalFirstToFifth();      // global 1.–5
+    const mdSum   = sumForMatchday(md);      // nur 6.–Ende (dieser Spieltag)
+    const allSum  = sumForAllMatchdays();    // alle Spieltage (6.–Ende)
+    const gSum    = sumGlobalFirstToFifth(); // 1–5 global
     const colspan = 3 + state.players.length;
 
     html += `<tr class="summary-row">
@@ -449,23 +451,18 @@
 
     html += `</tbody></table></div>`;
     els.tableWrap.innerHTML = html;
-
-    // Events
-    els.tableWrap.addEventListener('change', onTableChange);
-    els.tableWrap.addEventListener('click', onTableClick);
   }
 
   // ---------- Events ----------
-  function onGlobalChange(ev){
+  function onGlobalWrapChange(ev){
     const t = ev.target;
     if (t.matches('input[type="checkbox"][data-global]')){
       setEntryGlobal(t.dataset.player, t.dataset.pen, {checked: t.checked});
       renderTable(); // Summen aktualisieren
-      return;
     }
   }
 
-  function onTableChange(ev){
+  function onTableWrapChange(ev){
     const t = ev.target;
     if (t.matches('input[type="checkbox"][data-md]')){
       setEntry(t.dataset.md, t.dataset.player, t.dataset.pen, {checked: t.checked});
@@ -480,15 +477,10 @@
     }
   }
 
-  function onTableClick(ev){
+  let ctx = null;
+  function onTableWrapClick(ev){
     const btn = ev.target.closest('.comment-btn');
     if (!btn) return;
-    openComment(btn);
-  }
-
-  // ---------- Comments ----------
-  let ctx = null;
-  function openComment(btn){
     ctx = { md:btn.dataset.md, pl:btn.dataset.player, pen:btn.dataset.pen };
     const e = getEntry(ctx.md, ctx.pl, ctx.pen) || {};
     const dlg = $('#commentModal');
@@ -498,6 +490,7 @@
     $('#commentText').value = e.comment || '';
     dlg.showModal();
   }
+
   $('#saveComment')?.addEventListener('click', () => {
     if (!ctx) return $('#commentModal').close();
     setEntry(ctx.md, ctx.pl, ctx.pen, {
@@ -515,7 +508,7 @@
     els.log.scrollTop = els.log.scrollHeight;
   }
 
-  // ---------- Migration Extras ----------
+  // ---------- Migration / Extras ----------
   function migrateExtras(){
     const byNum = Object.fromEntries(defaults.penalties.map(r => [r.num, r]));
     if (!state.penalties.some(r => r.isSeparator)){
@@ -529,15 +522,24 @@
   }
 
   // ---------- Boot ----------
+  function renderAll(){
+    renderMatchdayOptions();
+    renderGlobal();
+    renderTable();
+    renderLog();
+  }
+
   function boot(){
     ensureGlobal();
     for (const md of state.matchdays) ensureMD(md);
     migrateExtras();
-    renderMatchdayOptions();
+    renderAll();
+
+    // dauerhafte Event-Delegation (persistente Speicherung)
     els.matchdaySelect?.addEventListener('change', renderTable);
-    renderGlobal();
-    renderTable();
-    renderLog();
+    els.globalWrap?.addEventListener('change', onGlobalWrapChange);
+    els.tableWrap?.addEventListener('change', onTableWrapChange);
+    els.tableWrap?.addEventListener('click',  onTableWrapClick);
   }
 
   boot();
