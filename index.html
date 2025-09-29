@@ -8,6 +8,8 @@
     :root{
       --bg:#0f172a; --panel:#111827; --muted:#1f2937; --card:#0b1220;
       --text:#e5e7eb; --text-dim:#9ca3af; --accent:#38bdf8; --border:#1f2937;
+      --headerH:48px;                     /* wird per JS dynamisch gesetzt */
+      --glass-body: rgba(11,18,32,0.45);  /* Transparenz Zellen */
     }
     *{box-sizing:border-box}
     body{margin:0; background:var(--bg); color:var(--text); font:13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial}
@@ -23,57 +25,46 @@
     .card .body{padding:8px 10px}
     .toolbar{display:flex; gap:8px; flex-wrap:wrap}
     .toolbar input,.toolbar select{background:#0d1628; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:6px 8px; outline:none; min-height:30px; font-size:12px}
+
     table{width:100%; border-collapse:separate; border-spacing:0}
-    thead th{position:sticky; top:0; background:#0d1628; z-index:1; padding:6px 8px; font-size:12px}
+    thead th{
+      position:sticky; top:var(--headerH);
+      background:#0d1628; color:#e5e7eb; z-index:5; padding:6px 8px; font-size:12px;
+      box-shadow: inset 0 -1px 0 #1f2937;
+    }
     th,td{border-bottom:1px solid var(--border); padding:4px 6px; text-align:center; vertical-align:middle}
-    tbody th{position:sticky; left:0; background:#0b1220; text-align:left; font-weight:600; color:var(--text)}
+    .sticky-left{position:sticky; left:0; background:#0d1628; color:#e5e7eb; z-index:6; box-shadow:1px 0 0 #1f2937}
+    thead th.sticky-left{z-index:7}
     .sub-row th{padding-left:20px}
     .separator-row td{border-top:2px solid var(--border); padding:0; height:6px}
-    .summary-row th,.summary-row td{font-weight:700; background:#0d1628}
+    .summary-row th,.summary-row td{font-weight:700; background:rgba(13,22,40,0.70)}
     .note{font-size:12px; color:var(--text-dim)}
-    .qty-input{ width:46px; text-align:right; background:#0d1628; border:1px solid var(--border); border-radius:6px; padding:2px 6px; color:var(--text); font-size:12px;}
+    .qty-input{ width:46px; text-align:right; background:#0d1628; border:1px solid var(--border); border-radius:6px; padding:2px 6px; color:var(--text); font-size:12px}
     .qty-input::-webkit-outer-spin-button,.qty-input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
     .qty-input[type=number]{-moz-appearance:textfield}
+    #tableWrap > div, #globalWrap > div{ overflow:auto; -webkit-overflow-scrolling:touch }
 
-    thead th { position: sticky; top: 0; background: #0d1628; color: #e5e7eb; z-index: 2; }
-    .sticky-left { position: sticky; left: 0; background: #0d1628; color: #e5e7eb; z-index: 3; }
+    /* Watermark */
+    body{ position: relative; z-index: 0; }
+    body::before{
+      content: ""; position: fixed; inset: 0;
+      background: url("./TTC_Logo_BW.png?v=2025-09-19-1") no-repeat center center;
+      background-size: 50%; opacity: 0.15; pointer-events: none; z-index: 0;
+    }
+    header, main, dialog, #tableWrap, #globalWrap{ position: relative; z-index: 1; }
 
-    thead th{ position:sticky; top:0; background:#0d1628; color:#e5e7eb; z-index:5; }
-    .sticky-left{ position:sticky; left:0; background:#0d1628; color:#e5e7eb; z-index:6; }
-    thead th.sticky-left{ z-index:7; }
-    thead th{ box-shadow: inset 0 -1px 0 #1f2937; }
-    .sticky-left{ box-shadow: 1px 0 0 #1f2937; }
-    #tableWrap > div{ overflow:auto; -webkit-overflow-scrolling:touch; }
-
-    body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial; position: relative; z-index: 0; }
-    body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: url("./TTC_Logo_BW.png?v=2025-09-19-1") no-repeat center center; background-size: 75%; opacity: 0.15; z-index: -1; }
-
-    body{ position: relative; }
-    body::before{ content: ""; position: fixed; inset: 0; background: url("./TTC_Logo_BW.png?v=2025-09-19-1") no-repeat center center; background-size: 50%; opacity: 0.15; pointer-events: none; z-index: 0; }
-    header, main, dialog, #tableWrap{ position: relative; z-index: 1; }
-
+    /* Glas-Effekt */
     .card.table-glass{ background: rgba(11,18,32,0.45) !important; border: 1px solid var(--border) !important; }
     .card.table-glass h2{ background: rgba(13,22,40,0.65) !important; }
     .card.table-glass .body{ background: transparent !important; }
-    #tableWrap table{ background: transparent !important; }
-
-    #tableWrap thead th,
-    #tableWrap .sticky-left,
-    #tableWrap tbody th{
+    #tableWrap table, #globalWrap table{ background: transparent !important; }
+    #tableWrap thead th, #tableWrap .sticky-left, #tableWrap tbody th,
+    #globalWrap thead th, #globalWrap .sticky-left, #globalWrap tbody th{
       background: rgba(13,22,40,0.70) !important;
       backdrop-filter: saturate(1) blur(1.2px);
     }
-
-    #tableWrap .summary-row th,
-    #tableWrap .summary-row td{
-      background: rgba(13,22,40,0.70) !important;
-    }
-
+    #tableWrap td, #globalWrap td{ background: var(--glass-body) !important; }
     .separator-row td{ background: transparent !important; }
-    :root{ --glass-body: rgba(11,18,32,0.45); }
-    #tableWrap thead th,
-    #tableWrap tbody th,
-    #tableWrap td { background: var(--glass-body) !important; }
   </style>
 </head>
 <body>
@@ -90,7 +81,6 @@
   </header>
 
   <main>
-    <!-- NEU: Globale Sektion 1–5 -->
     <section class="card table-glass">
       <h2>Strafen 1–5 (immer gültig)</h2>
       <div class="body" id="globalWrap"></div>
