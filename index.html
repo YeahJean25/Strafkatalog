@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html><!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8" />
@@ -8,17 +8,21 @@
     :root{
       --bg:#0f172a; --panel:#111827; --muted:#1f2937; --card:#0b1220;
       --text:#e5e7eb; --text-dim:#9ca3af; --accent:#38bdf8; --border:#1f2937;
-      --headerH:48px;                     /* wird per JS dynamisch gesetzt */
-      --glass-body: rgba(11,18,32,0.45);  /* Transparenz Zellen */
+      --headerH:48px;            /* wird per JS gesetzt (Höhe Seitenkopf)   */
+      --globalHeadH:0px;         /* wird per JS gesetzt (Höhe Kopf 1–5)     */
+      --glass-body: rgba(11,18,32,0.45);
     }
     *{box-sizing:border-box}
     body{margin:0; background:var(--bg); color:var(--text); font:13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial}
+
+    /* Seitenkopf */
     header{position:sticky; top:0; z-index:10; background:#0b1220; border-bottom:1px solid var(--border)}
     .wrap{max-width:1200px; margin:0 auto; padding:10px 12px; display:flex; gap:10px; align-items:center}
     h1{font-size:16px; margin:0}
     .btn{border:1px solid var(--border); background:#111827; padding:6px 10px; border-radius:8px; color:var(--text); cursor:pointer; font-size:12px}
     .btn-ok{background:#16a34a; border-color:#16a34a}
     .btn-warn{background:#d97706; border-color:#d97706}
+
     main{padding:14px; max-width:1200px; margin:0 auto}
     .card{background:var(--card); border:1px solid var(--border); border-radius:10px; margin-bottom:12px}
     .card h2{font-size:14px; margin:0; padding:8px 10px; border-bottom:1px solid var(--border); background:#0d1628}
@@ -26,23 +30,40 @@
     .toolbar{display:flex; gap:8px; flex-wrap:wrap}
     .toolbar input,.toolbar select{background:#0d1628; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:6px 8px; outline:none; min-height:30px; font-size:12px}
 
+    /* Tabellen-Basis */
     table{width:100%; border-collapse:separate; border-spacing:0}
-    thead th{
-      position:sticky; top:var(--headerH);
-      background:#0d1628; color:#e5e7eb; z-index:5; padding:6px 8px; font-size:12px;
-      box-shadow: inset 0 -1px 0 #1f2937;
-    }
     th,td{border-bottom:1px solid var(--border); padding:4px 6px; text-align:center; vertical-align:middle}
-    .sticky-left{position:sticky; left:0; background:#0d1628; color:#e5e7eb; z-index:6; box-shadow:1px 0 0 #1f2937}
-    thead th.sticky-left{z-index:7}
     .sub-row th{padding-left:20px}
     .separator-row td{border-top:2px solid var(--border); padding:0; height:6px}
-    .summary-row th,.summary-row td{font-weight:700; background:rgba(13,22,40,0.70)}
+    .summary-row th,.summary-row td{font-weight:700; background:#0d1628}
     .note{font-size:12px; color:var(--text-dim)}
     .qty-input{ width:46px; text-align:right; background:#0d1628; border:1px solid var(--border); border-radius:6px; padding:2px 6px; color:var(--text); font-size:12px}
     .qty-input::-webkit-outer-spin-button,.qty-input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
     .qty-input[type=number]{-moz-appearance:textfield}
     #tableWrap > div, #globalWrap > div{ overflow:auto; -webkit-overflow-scrolling:touch }
+
+    /* Sticky-Header: gestaffelte Offsets, opak */
+    #globalWrap thead th{
+      position:sticky; top:var(--headerH);
+      background:#0d1628 !important; color:#e5e7eb; z-index:6; padding:6px 8px; font-size:12px;
+      box-shadow: inset 0 -1px 0 #1f2937;
+    }
+    #tableWrap thead th{
+      position:sticky; top:calc(var(--headerH) + var(--globalHeadH));
+      background:#0d1628 !important; color:#e5e7eb; z-index:6; padding:6px 8px; font-size:12px;
+      box-shadow: inset 0 -1px 0 #1f2937;
+    }
+
+    /* Linke Sticky-Spalte: opak, gestapelt */
+    .sticky-left{
+      position:sticky; left:0;
+      background:#0d1628 !important; color:#e5e7eb; z-index:7; box-shadow:1px 0 0 #1f2937;
+      text-align:left; font-weight:600;
+    }
+    thead th.sticky-left{z-index:8}
+
+    /* Glaslook nur für normale Zellen, nicht für Sticky-Header/-Left */
+    #globalWrap td, #tableWrap td{ background: var(--glass-body) !important; }
 
     /* Watermark */
     body{ position: relative; z-index: 0; }
@@ -53,18 +74,11 @@
     }
     header, main, dialog, #tableWrap, #globalWrap{ position: relative; z-index: 1; }
 
-    /* Glas-Effekt */
+    /* Glas-Card */
     .card.table-glass{ background: rgba(11,18,32,0.45) !important; border: 1px solid var(--border) !important; }
     .card.table-glass h2{ background: rgba(13,22,40,0.65) !important; }
     .card.table-glass .body{ background: transparent !important; }
     #tableWrap table, #globalWrap table{ background: transparent !important; }
-    #tableWrap thead th, #tableWrap .sticky-left, #tableWrap tbody th,
-    #globalWrap thead th, #globalWrap .sticky-left, #globalWrap tbody th{
-      background: rgba(13,22,40,0.70) !important;
-      backdrop-filter: saturate(1) blur(1.2px);
-    }
-    #tableWrap td, #globalWrap td{ background: var(--glass-body) !important; }
-    .separator-row td{ background: transparent !important; }
   </style>
 </head>
 <body>
@@ -81,11 +95,13 @@
   </header>
 
   <main>
+    <!-- 1) Global 1–5 -->
     <section class="card table-glass">
       <h2>Strafen 1–5 (immer gültig)</h2>
       <div class="body" id="globalWrap"></div>
     </section>
 
+    <!-- 2) Konfiguration -->
     <section class="card">
       <h2>Konfiguration</h2>
       <div class="body">
@@ -102,11 +118,13 @@
       </div>
     </section>
 
+    <!-- 3) Ab 6. pro Spieltag -->
     <section class="card table-glass">
       <h2>Strafen ab 6. (pro Spieltag)</h2>
       <div class="body" id="tableWrap"></div>
     </section>
 
+    <!-- 4) Log -->
     <section class="card">
       <h2>Änderungsprotokoll</h2>
       <div class="body">
@@ -118,6 +136,7 @@
     </section>
   </main>
 
+  <!-- Kommentar-Dialog -->
   <dialog id="commentModal">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);background:#0d1628">
       <strong>Kommentar</strong>
@@ -138,3 +157,5 @@
   <script src="app.js"></script>
 </body>
 </html>
+
+
