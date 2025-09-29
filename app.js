@@ -1,25 +1,31 @@
-/* Strafkatalog – 1–5 global, ab 6. pro Spieltag, Summen, Kommentare, Sticky-Header, Persistenz */
+/* Strafkatalog – 1–5 global, ab 6. pro Spieltag, Summen, Kommentare, Sticky ohne Überlappung, Persistenz */
 (() => {
   'use strict';
 
-  // ---------- DOM Helpers ----------
+  // ===== Helpers =====
   const $  = (s, root = document) => root.querySelector(s);
-  const KEY = 'strafkatalog_state_v2'; // neue, stabile Version
+  const KEY = 'strafkatalog_state_v2';
 
-  // Sticky-Header an Seiten-Header-Höhe anpassen
+  // Sticky: Seitenkopf-Höhe & Kopf der 1–5-Tabelle messen
   function updateStickyTop(){
     const hdr = document.querySelector('header');
     const h = hdr ? hdr.offsetHeight : 0;
     document.documentElement.style.setProperty('--headerH', (h || 0) + 'px');
+    updateGlobalHeadHeight();
+  }
+  function updateGlobalHeadHeight(){
+    const th = document.querySelector('#globalTable thead');
+    const h  = th ? th.getBoundingClientRect().height : 0;
+    document.documentElement.style.setProperty('--globalHeadH', (h || 0) + 'px');
   }
   updateStickyTop();
-  window.addEventListener('resize', updateStickyTop);
+  window.addEventListener('resize', () => { updateStickyTop(); });
+
   if (window.ResizeObserver){
-    const el = document.querySelector('header');
-    if (el){ new ResizeObserver(updateStickyTop).observe(el); }
+    const headerEl = document.querySelector('header');
+    if (headerEl){ new ResizeObserver(updateStickyTop).observe(headerEl); }
   }
 
-  // ---------- Utils ----------
   const escapeHtml = (s) => String(s).replace(/[&<>\"']/g, c =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] || c));
   const attr = (s) => String(s).split('"').join('&quot;');
@@ -37,10 +43,13 @@
     return Number.isFinite(v) ? v : 0;
   };
   const formatEuro = (n) => (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2).replace('.', ',') + '€';
-  const isMonetary = (price) => typeof price === 'string' && /€/i.test(price) && /[0-9]/.test(price);
-  const normalizeNonEuroLabel = (price) => String(price || '').replace(/^\s*\d+\s+/, '').trim();
 
-  // ---------- Defaults ----------
+  const isMonetary = (price) =>
+    typeof price === 'string' && /€/i.test(price) && /[0-9]/.test(price);
+  const normalizeNonEuroLabel = (price) =>
+    String(price || '').replace(/^\s*\d+\s+/, '').trim();
+
+  // ===== Defaults =====
   const defaults = {
     projectName: 'Saison 2025/26',
     players: ['Steffen','Daniel','Armin','Robert','Tim','Phillip','Jean'],
@@ -107,26 +116,23 @@
     log: []
   };
 
-  // ---------- State ----------
+  // ===== State & Elements =====
   let state = load();
   if (!valid(state)) state = JSON.parse(JSON.stringify(defaults));
 
-  // ---------- Elements ----------
   const els = {
     projectName:   $('#projectName'),
     matchdaySelect:$('#matchdaySelect'),
     tableWrap:     $('#tableWrap'),
     globalWrap:    $('#globalWrap'),
     log:           $('#log'),
-    dlg:           $('#commentModal'),
   };
 
-  // ---------- Header-Init ----------
+  // Header-Inputs
   if (els.projectName){
     els.projectName.value = state.projectName || '';
     els.projectName.addEventListener('input', () => { state.projectName = els.projectName.value; save(state); });
   }
-
   $('#btnPrint')?.addEventListener('click', () => window.print());
   $('#btnExportJSON')?.addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
@@ -156,7 +162,7 @@
   });
   $('#clearLog')?.addEventListener('click', () => { state.log = []; save(state); renderLog(); });
 
-  // ---------- Data helpers ----------
+  // ===== Data helpers =====
   const firstToFifth = new Set(['1.','2.','3.','4.','5.']);
 
   function ensureGlobal(){
@@ -165,8 +171,7 @@
       state.global[p] ||= {};
       for (const row of state.penalties){
         if (!firstToFifth.has(row.num)) continue;
-        const prev = state.global[p][row.num];
-        if (!prev){
+        if (!state.global[p][row.num]){
           const base = row.allowMulti ? { count:0, comment:'', ts:null } : { checked:false, comment:'', ts:null };
           state.global[p][row.num] = base;
         }
@@ -182,18 +187,9 @@
       state.data[md][p] ||= {};
       for (const row of state.penalties){
         if (row.isSeparator) continue;
-        if (firstToFifth.has(row.num)) continue; // 1–5 sind global
-        const prev = state.data[md][p][row.num];
+        if (firstToFifth.has(row.num)) continue;
         const base = row.allowMulti ? { count:0, comment:'', ts:null } : { checked:false, comment:'', ts:null };
-        if (prev && row.allowMulti){
-          state.data[md][p][row.num] = {
-            count: prev.count ?? (prev.checked ? 1 : 0),
-            comment: prev.comment || '',
-            ts: prev.ts || null
-          };
-        } else if (!prev){
-          state.data[md][p][row.num] = base;
-        }
+        if (!state.data[md][p][row.num]) state.data[md][p][row.num] = base;
       }
     }
     save(state);
@@ -215,13 +211,12 @@
     save(state);
   }
 
-  // ---------- Summen ----------
+  // ===== Summen =====
   function sumGlobalFirstToFifth(){
     const sums = Object.fromEntries(state.players.map(p=>[p,0]));
     for (const row of state.penalties){
       if (!firstToFifth.has(row.num)) continue;
-      const price = parseEuro(row.price);
-      if (!price) continue;
+      const price = parseEuro(row.price); if (!price) continue;
       for (const p of state.players){
         const e = getEntryGlobal(p,row.num) || {};
         const qty = row.allowMulti ? (e.count||0) : (e.checked ? 1 : 0);
@@ -230,14 +225,12 @@
     }
     return sums;
   }
-
   function sumForMatchday(md){
     const sums = Object.fromEntries(state.players.map(p=>[p,0]));
     for (const row of state.penalties){
       if (row.isSeparator) continue;
-      if (firstToFifth.has(row.num)) continue; // nur 6.–Ende
-      const price = parseEuro(row.price);
-      if (!price) continue;
+      if (firstToFifth.has(row.num)) continue;
+      const price = parseEuro(row.price); if (!price) continue;
       for (const p of state.players){
         const e = getEntry(md,p,row.num) || {};
         const qty = row.allowMulti ? (e.count||0) : (e.checked ? 1 : 0);
@@ -246,7 +239,6 @@
     }
     return sums;
   }
-
   function sumForAllMatchdays(){
     const sums = Object.fromEntries(state.players.map(p=>[p,0]));
     for (const md of state.matchdays){
@@ -257,290 +249,20 @@
     return sums;
   }
 
-  // ---------- Nicht-€ ----------
+  // ===== Nicht-€ =====
   function collectNonMonetaryForMatchdayDetailed(md){
     const bag = {};
     for (const row of state.penalties){
       if (row.isSeparator) continue;
       if (firstToFifth.has(row.num)) continue;
       if (!row.price || isMonetary(row.price)) continue;
-      const item = normalizeNonEuroLabel(row.price);
-      if (!item) continue;
-
+      const item = normalizeNonEuroLabel(row.price); if (!item) continue;
       for (const p of state.players){
         const e = getEntry(md, p, row.num) || {};
         const qty = row.allowMulti ? (e.count || 0) : (e.checked ? 1 : 0);
-        if (qty > 0){
-          bag[item] ||= {};
-          bag[item][p] = (bag[item][p] || 0) + qty;
-        }
+        if (qty > 0){ (bag[item] ||= {}); bag[item][p] = (bag[item][p] || 0) + qty; }
       }
     }
-    const lines = [];
-    for (const [item, playersMap] of Object.entries(bag)){
+    return Object.entries(bag).map(([item, playersMap])=>{
       const total = Object.values(playersMap).reduce((a,b)=>a+b,0);
-      const who = Object.entries(playersMap).map(([pl,c]) => c === 1 ? pl : `${pl} (${c})`).join(', ');
-      lines.push(`${total}× ${item} — ${who}`);
-    }
-    return lines;
-  }
-
-  function collectNonMonetaryAllDetailed(){
-    const bag = {};
-    // global 1–5
-    for (const row of state.penalties){
-      if (!firstToFifth.has(row.num)) continue;
-      if (!row.price || isMonetary(row.price)) continue;
-      const item = normalizeNonEuroLabel(row.price);
-      if (!item) continue;
-      for (const p of state.players){
-        const e = getEntryGlobal(p, row.num) || {};
-        const qty = row.allowMulti ? (e.count||0) : (e.checked ? 1 : 0);
-        if (qty > 0){
-          bag[item] ||= {};
-          bag[item][p] = (bag[item][p] || 0) + qty;
-        }
-      }
-    }
-    // 6–Ende über alle Spieltage
-    for (const md of state.matchdays){
-      ensureMD(md);
-      for (const row of state.penalties){
-        if (row.isSeparator) continue;
-        if (firstToFifth.has(row.num)) continue;
-        if (!row.price || isMonetary(row.price)) continue;
-        const item = normalizeNonEuroLabel(row.price);
-        if (!item) continue;
-
-        for (const p of state.players){
-          const e = getEntry(md, p, row.num) || {};
-          const qty = row.allowMulti ? (e.count || 0) : (e.checked ? 1 : 0);
-          if (qty > 0){
-            bag[item] ||= {};
-            bag[item][p] = (bag[item][p] || 0) + qty;
-          }
-        }
-      }
-    }
-    const lines = [];
-    for (const [item, playersMap] of Object.entries(bag)){
-      const total = Object.values(playersMap).reduce((a,b)=>a+b,0);
-      const who = Object.entries(playersMap).map(([pl,c]) => c === 1 ? pl : `${pl} (${c})`).join(', ');
-      lines.push(`${total}× ${item} — ${who}`);
-    }
-    return lines;
-  }
-
-  // ---------- Render ----------
-  function renderMatchdayOptions(){
-    if (!els.matchdaySelect) return;
-    els.matchdaySelect.innerHTML = state.matchdays.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
-    if (!els.matchdaySelect.value && state.matchdays.length) els.matchdaySelect.value = state.matchdays[0];
-  }
-
-  function renderGlobal(){
-    ensureGlobal();
-    const rows = state.penalties.filter(r => firstToFifth.has(r.num));
-    let html = `<div><table><thead><tr>
-      <th class="sticky-left">#</th>
-      <th class="sticky-left">Strafe</th>
-      <th>Preis</th>
-      ${state.players.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}
-    </tr></thead><tbody>`;
-
-    for (const row of rows){
-      html += `<tr>
-        <th class="sticky-left">${escapeHtml(row.num)}</th>
-        <th class="sticky-left">${escapeHtml(row.label)}</th>
-        <td>${escapeHtml(row.price||'')}</td>`;
-      for (const pl of state.players){
-        const e = getEntryGlobal(pl,row.num) || {};
-        const checked = e.checked ? 'checked' : '';
-        html += `<td><input type="checkbox" data-global="1" data-player="${attr(pl)}" data-pen="${attr(row.num)}" ${checked}></td>`;
-      }
-      html += `</tr>`;
-    }
-    html += `</tbody></table></div>`;
-    els.globalWrap.innerHTML = html;
-  }
-
-  function renderTable(){
-    const md = els.matchdaySelect?.value || state.matchdays[0];
-    ensureMD(md);
-
-    let html = `<div><table><thead><tr>
-      <th class="sticky-left">#</th>
-      <th class="sticky-left">Strafe</th>
-      <th>Preis</th>
-      ${state.players.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}
-    </tr></thead><tbody>`;
-
-    for (const row of state.penalties){
-      if (row.isSeparator){
-        html += `<tr class="separator-row"><td colspan="${3 + state.players.length}"></td></tr>`;
-        continue;
-      }
-      if (firstToFifth.has(row.num)) continue; // 1–5 sind oben
-
-      const isCommentRow = (row.num === '6.' || row.num === '10.');
-      const rowClass = row.isSub ? 'sub-row' : '';
-      html += `<tr class="${rowClass}">
-        <th class="sticky-left">${escapeHtml(row.num)}</th>
-        <th class="sticky-left">${escapeHtml(row.label)}</th>
-        <td>${escapeHtml(row.price||'')}</td>`;
-
-      for (const pl of state.players){
-        const e = getEntry(md,pl,row.num) || {};
-        let cellHtml = '';
-
-        if (isCommentRow){
-          cellHtml += ` <span class="comment-btn" data-md="${attr(md)}" data-player="${attr(pl)}" data-pen="${attr(row.num)}">💬</span>`;
-          if (e.comment && e.comment.trim()) cellHtml += `<div class="note">${escapeHtml(e.comment)}</div>`;
-        } else if (row.allowMulti){
-          const val = e.count ?? 0;
-          cellHtml += `<input type="number" min="0" step="1" class="qty-input"
-                         data-md="${attr(md)}" data-player="${attr(pl)}" data-pen="${attr(row.num)}"
-                         value="${val}">`;
-        } else {
-          const checked = e.checked ? 'checked' : '';
-          cellHtml += `<input type="checkbox" data-md="${attr(md)}" data-player="${attr(pl)}" data-pen="${attr(row.num)}" ${checked}>`;
-        }
-        html += `<td>${cellHtml}</td>`;
-      }
-      html += `</tr>`;
-    }
-
-    // Summen
-    const mdSum   = sumForMatchday(md);      // nur 6.–Ende (dieser Spieltag)
-    const allSum  = sumForAllMatchdays();    // alle Spieltage (6.–Ende)
-    const gSum    = sumGlobalFirstToFifth(); // 1–5 global
-    const colspan = 3 + state.players.length;
-
-    html += `<tr class="summary-row">
-      <th class="sticky-left">Σ</th>
-      <th class="sticky-left">Gesamt (dieser Spieltag)</th>
-      <td></td>
-      ${state.players.map(p => `<td>${formatEuro(mdSum[p])}</td>`).join('')}
-    </tr>`;
-
-    html += `<tr class="summary-row">
-      <th class="sticky-left">Σ</th>
-      <th class="sticky-left">Gesamt (alle Spieltage inkl. 1–5)</th>
-      <td></td>
-      ${state.players.map(p => `<td>${formatEuro(allSum[p] + gSum[p])}</td>`).join('')}
-    </tr>`;
-
-    // Nicht-€ Hinweise
-    const nonMonThis = collectNonMonetaryForMatchdayDetailed(md);
-    const nonMonAll  = collectNonMonetaryAllDetailed();
-
-    if (nonMonThis.length){
-      html += `<tr class="note-row"><td colspan="${colspan}">
-        <div class="note"><strong>Nicht-monetäre Strafen (dieser Spieltag):</strong><br>
-          ${nonMonThis.map(s => escapeHtml(s)).join('<br>')}
-        </div>
-      </td></tr>`;
-    }
-    if (nonMonAll.length){
-      html += `<tr class="note-row"><td colspan="${colspan}">
-        <div class="note"><strong>Nicht-monetäre Strafen (gesamt inkl. 1–5):</strong><br>
-          ${nonMonAll.map(s => escapeHtml(s)).join('<br>')}
-        </div>
-      </td></tr>`;
-    }
-
-    html += `</tbody></table></div>`;
-    els.tableWrap.innerHTML = html;
-  }
-
-  // ---------- Events ----------
-  function onGlobalWrapChange(ev){
-    const t = ev.target;
-    if (t.matches('input[type="checkbox"][data-global]')){
-      setEntryGlobal(t.dataset.player, t.dataset.pen, {checked: t.checked});
-      renderTable(); // Summen aktualisieren
-    }
-  }
-
-  function onTableWrapChange(ev){
-    const t = ev.target;
-    if (t.matches('input[type="checkbox"][data-md]')){
-      setEntry(t.dataset.md, t.dataset.player, t.dataset.pen, {checked: t.checked});
-      renderTable();
-      return;
-    }
-    if (t.matches('.qty-input')){
-      const n = Math.max(0, Math.floor(Number(t.value) || 0));
-      setEntry(t.dataset.md, t.dataset.player, t.dataset.pen, {count:n});
-      renderTable();
-      return;
-    }
-  }
-
-  let ctx = null;
-  function onTableWrapClick(ev){
-    const btn = ev.target.closest('.comment-btn');
-    if (!btn) return;
-    ctx = { md:btn.dataset.md, pl:btn.dataset.player, pen:btn.dataset.pen };
-    const e = getEntry(ctx.md, ctx.pl, ctx.pen) || {};
-    const dlg = $('#commentModal');
-    if (!dlg || !dlg.showModal) { alert('Kommentar-Dialog nicht verfügbar.'); return; }
-    $('#modalMeta').textContent = `${ctx.pl} · ${ctx.pen} · ${ctx.md}`;
-    $('#modalChecked').checked = !!e.checked;
-    $('#commentText').value = e.comment || '';
-    dlg.showModal();
-  }
-
-  $('#saveComment')?.addEventListener('click', () => {
-    if (!ctx) return $('#commentModal').close();
-    setEntry(ctx.md, ctx.pl, ctx.pen, {
-      comment: $('#commentText').value,
-      checked: $('#modalChecked').checked
-    });
-    renderTable();
-    $('#commentModal').close();
-  });
-
-  // ---------- Log ----------
-  function renderLog(){
-    if (!els.log) return;
-    els.log.textContent = (state.log||[]).map(l => `[${new Date(l.ts).toLocaleString()}] ${l.msg}`).join('\n');
-    els.log.scrollTop = els.log.scrollHeight;
-  }
-
-  // ---------- Migration / Extras ----------
-  function migrateExtras(){
-    const byNum = Object.fromEntries(defaults.penalties.map(r => [r.num, r]));
-    if (!state.penalties.some(r => r.isSeparator)){
-      const idx17 = state.penalties.findIndex(r => r.num === '17.');
-      if (idx17 !== -1) state.penalties.splice(idx17+1, 0, { num:'—', label:'SEPARATOR', isSeparator:true });
-    }
-    ['18.','19.','20.','21.'].forEach(n => {
-      if (!state.penalties.find(r => r.num === n)) state.penalties.push(byNum[n]);
-    });
-    save(state);
-  }
-
-  // ---------- Boot ----------
-  function renderAll(){
-    renderMatchdayOptions();
-    renderGlobal();
-    renderTable();
-    renderLog();
-  }
-
-  function boot(){
-    ensureGlobal();
-    for (const md of state.matchdays) ensureMD(md);
-    migrateExtras();
-    renderAll();
-
-    // dauerhafte Event-Delegation (persistente Speicherung)
-    els.matchdaySelect?.addEventListener('change', renderTable);
-    els.globalWrap?.addEventListener('change', onGlobalWrapChange);
-    els.tableWrap?.addEventListener('change', onTableWrapChange);
-    els.tableWrap?.addEventListener('click',  onTableWrapClick);
-  }
-
-  boot();
-})();
+      const who = Object.entries(playersMap).map(([pl,c]
